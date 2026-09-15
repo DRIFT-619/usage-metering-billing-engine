@@ -1,0 +1,33 @@
+{
+  "name": "usage-metering-billing-engine",
+  "version": "1.0.0",
+  "description": "A usage metering, quota enforcement, and Stripe billing engine built for the FlyRank Backend Internship capstone.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "migrate:up": "node --env-file=.env node_modules/.bin/node-pg-migrate up",
+    "migrate:down": "node --env-file=.env node_modules/.bin/node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create",
+    "seed": "node --env-file=.env scripts/seed.js",
+    "test": "node --env-file=.env.test --test test/**/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "node-pg-migrate": "^7.6.1",
+    "pg": "^8.12.0",
+    "stripe": "^16.8.0",
+    "uuid": "^14.0.2",
+    "zod": "^3.23.8"
+  },
+  "overrides": {
+    "glob": "^11.1.0",
+    "qs": "^6.16.0"
+  }
+}
