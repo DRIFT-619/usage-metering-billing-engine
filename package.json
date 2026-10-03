@@ -5,18 +5,19 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "node --env-file=.env --watch src/server.js",
-    "start": "node --env-file=.env src/server.js",
-    "migrate:up": "node --env-file=.env node_modules/.bin/node-pg-migrate up",
-    "migrate:down": "node --env-file=.env node_modules/.bin/node-pg-migrate down",
-    "migrate:create": "node-pg-migrate create",
-    "seed": "node --env-file=.env scripts/seed.js",
-    "test": "node --env-file=.env.test --test test/**/*.test.js"
+    "dev": "dotenv -e .env -- node --watch src/server.js",
+    "start": "dotenv -e .env -- node src/server.js",
+    "migrate:up": "dotenv -e .env -- npx node-pg-migrate up",
+    "migrate:down": "dotenv -e .env -- npx node-pg-migrate down",
+    "migrate:create": "npx node-pg-migrate create",
+    "seed": "dotenv -e .env -- node scripts/seed.js",
+    "test": "dotenv -e .env.test -- node --test test/**/*.test.js"
   },
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "dotenv-cli": "^7.4.2",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",

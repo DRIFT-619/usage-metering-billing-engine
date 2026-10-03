@@ -27,3 +27,24 @@ Honest record of how AI was used, what I reviewed, and what I can explain. Updat
 - The two-layer idempotency design (response cache + DB constraint) and why neither alone is enough.
 - Why quota and budget are enforced as two independent checks, not one.
 - Why money is stored as integer micros instead of floats.
+
+## Phase 2 — Idempotent metering, quota + budget enforcement
+
+**Where AI helped:**
+- Designed and implemented the transaction flow for `POST /generate`: the per-tenant advisory lock, the idempotency-key lookup/replay/conflict logic, the quota and budget checks, and the usage-event insert, all inside one Postgres transaction.
+- Made the key design call that business rejections (quota/budget/plan-inactive) are caught
+  inside the transaction and recorded in `idempotency_keys` rather than thrown and rolled back, so a retried rejected request replays the cached rejection instead of re-running the checks.
+- Wrote the request validation (zod discriminated union), the tenant-resolution middleware, and the cost-calculation math against the pricing constants pinned in Phase 1.
+- Made an arithmetic slip in its own test script (miscounted prior usage when setting up the
+  quota-boundary demo), then caught it and reran a corrected 99,999 -> 100,000 -> rejected proof.
+
+**What I reviewed and decided:**
+- Walked through why the advisory lock is acquired before the idempotency lookup, not after.
+- Questioned why quota and budget are separate checks rather than one combined condition.
+- Ran the proof commands myself against a live Postgres and hand-checked the cost math against the pinned pricing constants.
+
+**What I can explain if asked:**
+- Why `recordUsage()` never throws for an expected business outcome, only for a genuine bug.
+- Why the lock is per-tenant and not global or per-request.
+- Why quota's boundary check uses `>` and not `>=`.
+- Why the budget guard can fire while token usage is well under quota.

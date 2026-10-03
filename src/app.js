@@ -6,6 +6,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const healthRoute = require('./routes/health');
+const generateRoute = require('./routes/generate');
+const usageRoute = require('./routes/usage');
+const resolveTenant = require('./middleware/resolveTenant');
 
 function buildApp() {
   const app = express();
@@ -16,11 +19,12 @@ function buildApp() {
 
   // NOTE: the Stripe webhook route needs the RAW request body to verify the
   // signature, so it must be mounted with express.raw() *before* the global
-  // express.json() below. That route is added in Phase 3 — flagging the
-  // ordering requirement here now so it isn't forgotten later.
+  // express.json() below. That route is added in Phase 3.
   app.use(express.json());
 
   app.use('/health', healthRoute);
+  app.use('/generate', resolveTenant, generateRoute);
+  app.use('/usage', resolveTenant, usageRoute);
 
   // 404 fallback
   app.use((req, res) => {

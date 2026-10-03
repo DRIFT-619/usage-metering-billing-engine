@@ -150,7 +150,15 @@ budget are different failure modes and this service treats them as such:
 This mirrors how real AI-billing platforms actually work: quota protects the platform,
 budget protects the customer from surprise bills.
 
-## 6. Non-goals
+## 6. Quota & budget boundary rule
+
+A request that would land **exactly** on the limit is allowed; a request that would **cross**
+it is rejected. Concretely: if `current_usage + this_request's_quantity > limit`, reject.
+Equal-to-limit is not greater-than-limit, so the 1,000th call on a 1,000-call plan succeeds,
+and the 1,001st is the first to receive `429`. The same `>` (not `>=`) rule governs the budget
+cap.
+
+## 7. Non-goals
 
 - **No real authentication.** `X-Tenant-Id` stands in for a verified session/API key. Building
   real auth (JWT/session, password hashing) is out of scope — it was covered in an earlier
