@@ -54,10 +54,26 @@ Verify it's alive:
 curl http://localhost:3000/health
 ```
 
+## Stripe setup (test mode)
+
+1. Create a recurring product in the Stripe dashboard (test mode) and copy its **Price ID**.
+2. Put `STRIPE_SECRET_KEY` and `STRIPE_PRO_PRICE_ID` in `.env`, then run `npm run seed` again so
+   the Pro plan row picks up the price id.
+3. Forward webhooks, using the key from your `.env` so the CLI uses the same Stripe account:
+```bash
+   stripe listen --api-key "$(grep '^STRIPE_SECRET_KEY=' .env | tail -1 | cut -d= -f2-)" \
+     --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted \
+     --forward-to localhost:3000/webhooks/stripe
+```
+4. Copy the printed `whsec_...` into `STRIPE_WEBHOOK_SECRET` and restart the server.
+5. `POST /checkout` with an `X-Tenant-Id` header returns a `checkout_url`. Pay with
+   `4242 4242 4242 4242`, any future expiry, any CVC.
+
 ## Status
 
-Phase 1 complete (design + schema + skeleton). <br/>
-Phases 2–4 in progress.
+Phases 1-3 complete (design/schema, idempotent metering with quota + budget enforcement,Stripe Checkout with signature-verified, deduplicated webhooks). <br/>
+
+Phase 4 (tests, polish) in progress.
 
 ## Limitations
 
@@ -65,3 +81,6 @@ Phases 2–4 in progress.
   `DESIGN.md` non-goals).
 - No real AI calls — tokens are simulated per the brief.
 - No invoicing/proration in the core (proration is a stretch goal).
+- Upgrading to Pro starts a fresh billing period, so usage from before the upgrade no longer
+  counts toward the new period. There is no proration (a stretch goal).
+- Stripe CLI gotcha: `stripe listen` uses whichever account you ran `stripe login` with. If that isn't the account your API key belongs to, events never arrive. Passing `--api-key` fixes it.

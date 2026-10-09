@@ -48,3 +48,34 @@ Honest record of how AI was used, what I reviewed, and what I can explain. Updat
 - Why the lock is per-tenant and not global or per-request.
 - Why quota's boundary check uses `>` and not `>=`.
 - Why the budget guard can fire while token usage is well under quota.
+
+## Phase 3 — Stripe Checkout + signature-verified, deduplicated webhooks
+
+**Where AI helped:**
+- Designed and wrote the Checkout session creation, the webhook route (raw-body signature
+  verification, event dedup via `stripe_events`, handlers for checkout completed / subscription
+  updated / subscription deleted), and the subscription sync service.
+- Wrote this code without being able to run it (Stripe's API wasn't reachable from its
+  environment), so all debugging happened live against my real Stripe account.
+- Misdiagnosed the "plan never updated" bug twice: first as a Stripe "thin event" format issue,
+  then as a listener start-order problem. Both guesses were wrong. The real cause was that the
+  Stripe CLI was logged into a different Stripe account than the API key in my `.env`, so
+  `stripe listen` never saw my checkout events.
+- Missed two Stripe account-default changes newer than its knowledge (Managed Payments required a
+  tax code or an explicit opt-out), and a route-mounting mistake where the success redirect page
+  was wrongly behind the tenant-header middleware.
+
+**What I reviewed and decided:**
+- Diagnosed the account mismatch from the evidence myself: the CLI printed a different account id
+  than the Stripe error links, and `stripe listen --api-key` fixed it.
+- Spotted that a cancelled Pro subscription would leave the tenant stuck on a "canceled" status,
+  rejected by `/generate`. Decided cancellation should fall back to a working Free plan, and
+  proved it end to end (Free -> Pro -> cancel -> Free -> successful billable call).
+- Ran every proof myself: forged signature, real Checkout, event replay, cancellation.
+
+**What I can explain if asked:**
+- Why the webhook route uses `express.raw()` and is mounted before `express.json()`.
+- Why dedup happens inside the same transaction as the plan update.
+- Why the tenant is found via `client_reference_id` on checkout, but via the stored
+  `stripe_subscription_id` for later events.
+- Why the success/cancel redirect pages can't sit behind the tenant-header middleware.

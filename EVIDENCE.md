@@ -71,8 +71,51 @@ total = 3000 + 150 + 3000 + 1500 = 7650 micros — matches cost_micros exactly
 
 ## Stripe integration
 
-- [ ] Subscription checkout works end-to-end in test mode. (Phase 3)
-- [ ] Webhooks verify signatures, ignore duplicates, update tenant plan/status. (Phase 3)
+- [x] Subscription checkout works end-to-end in test mode.
+- [x] Webhooks verify signatures, ignore duplicates, update tenant plan/status.
+
+```
+# 1. Forged signature -> 400, nothing changes
+$ curl -w "\nHTTP %{http_code}\n" -X POST localhost:3000/webhooks/stripe \
+    -H "stripe-signature: t=1,v1=bogus" -d '{"fake":"event"}'
+{"error":"invalid_signature","message":"No signatures found matching the expected signature for payload. ..."}
+HTTP 400
+
+# 2. Real test-mode Checkout (card 4242 4242 4242 4242) -> webhook flips Free -> Pro
+# stripe listen output:
+--> checkout.session.completed [evt_1UOVPNIZplex4bhsEDzhHR5G]
+--> customer.subscription.updated [evt_1UOVPNIZplex4bhszuWLKwhB]
+<-- [200] POST http://localhost:3000/webhooks/stripe [evt_1UOVPNIZplex4bhsEDzhHR5G]
+<-- [200] POST http://localhost:3000/webhooks/stripe [evt_1UOVPNIZplex4bhszuWLKwhB]
+
+$ curl localhost:3000/usage -H "X-Tenant-Id: f95d6c3f-..."
+{"plan":"pro","api_calls":{"used":0,"limit":50000},"ai_tokens":{"used":0,"limit":5000000},...}
+
+$ psql ... "SELECT plan_id, status, stripe_subscription_id FROM subscriptions WHERE tenant_id='f95d6c3f-...';"
+ pro | active | sub_1UOVPJIZplex4bhslikUJeJX
+
+# 3. Replay of the same event -> processed once
+$ stripe events resend evt_1UOVPNIZplex4bhsEDzhHR5G
+# server log:
+[stripe webhook] received checkout.session.completed (id: evt_1UOVPNIZplex4bhsEDzhHR5G)
+[stripe webhook] evt_1UOVPNIZplex4bhsEDzhHR5G duplicate ignored
+
+$ psql ... "SELECT COUNT(*) FROM stripe_events WHERE stripe_event_id = 'evt_1UOVPNIZplex4bhsEDzhHR5G';"
+ count
+-------
+     1
+
+# 4. Cancelling the subscription -> tenant falls back to a working Free plan
+$ stripe subscriptions cancel sub_1UOVPJIZplex4bhslikUJeJX
+# stripe listen: --> customer.subscription.deleted [evt_1UOVd5IZplex4bhs7ijGMGXU]  <-- [200]
+# server log:    [stripe webhook] evt_1UOVd5IZplex4bhs7ijGMGXU processed
+
+$ curl localhost:3000/usage -H "X-Tenant-Id: f95d6c3f-..."
+{"plan":"free","api_calls":{"used":0,"limit":1000},"ai_tokens":{"used":0,"limit":100000},...}
+
+$ curl -X POST localhost:3000/generate ... -d '{"type":"api_call"}'
+{"type":"api_call","cost_micros":500,"usage_after":{"used":1,"limit":1000},"id":"076c4b84-..."}
+```
 
 ## Data model, tests & documentation
 

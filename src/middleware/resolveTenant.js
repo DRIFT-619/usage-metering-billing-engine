@@ -14,6 +14,7 @@ async function resolveTenant(req, res, next) {
       `SELECT
          t.id AS tenant_id,
          t.name AS tenant_name,
+         t.stripe_customer_id AS stripe_customer_id,
          s.id AS subscription_id,
          s.status AS subscription_status,
          s.current_period_start,
@@ -42,6 +43,7 @@ async function resolveTenant(req, res, next) {
     req.billingContext = {
       tenantId: row.tenant_id,
       tenantName: row.tenant_name,
+      stripeCustomerId: row.stripe_customer_id,
       subscription: row.subscription_id
         ? {
             id: row.subscription_id,
