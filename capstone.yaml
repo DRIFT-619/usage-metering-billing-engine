@@ -1,5 +1,5 @@
 name: Usage Metering & Billing Engine
-run: docker compose up -d && npm run migrate:up && npm run start
+run: docker compose up -d --wait && npm run migrate:up && npm run start
 seed: npm run seed
 test: npm test
 base_url: http://localhost:3000

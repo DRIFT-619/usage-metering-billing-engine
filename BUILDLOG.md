@@ -79,3 +79,36 @@ Honest record of how AI was used, what I reviewed, and what I can explain. Updat
 - Why the tenant is found via `client_reference_id` on checkout, but via the stored
   `stripe_subscription_id` for later events.
 - Why the success/cancel redirect pages can't sit behind the tenant-header middleware.
+
+
+## Phase 4 — Tests, concurrency proof, background job, finalization
+
+**Where AI helped:**
+- Wrote the test suite (pricing, metering, concurrency, usage, webhook, jobs), the test helpers
+  (separate `_test` database with a safety check, auto-migration), the `runJob` retry/alert wrapper,
+  the free-period rollover job, and the README/EVIDENCE updates.
+- Audited the Phase 1–3 repo against the brief and found gaps: `npm test` pointed at a folder that
+  did not exist; the concurrency proof was unticked; no background job (shared requirement #3);
+  Free tenants' billing period was never advanced after their first month; stray empty files in the
+  repo root.
+- Its first version of the 999/1000 concurrency test passed even with the advisory lock removed
+  (the race window was too narrow). A mutation check caught this, and the test was rewritten to run
+  10 rounds.
+- Replaced the webhook's SELECT-then-INSERT dedup with `INSERT ... ON CONFLICT DO NOTHING`.
+  A new simultaneous-delivery test reproduced the 500 in the old code before the fix.
+
+**What I reviewed and decided:**
+- Let the AI choose the order of work and decided that closing the core brief (tests, the
+  concurrency proof, the background job) came before any stretch goal.
+- Applied every change to my own repo by hand, file by file, rather than pasting a bundle in, and read each new file as I added it.
+- Ran `npm test` on my own machine against my own Docker Postgres and pasted the real output into EVIDENCE.md, not the AI's output.
+- Ran the mutation check myself: commented out the `pg_advisory_xact_lock` line in
+  `meterService.js`, watched the concurrency tests fail, then restored the line and confirmed `git diff` showed no change. This is what convinced me the lock is doing the work, and that the tests can actually fail.
+- Checked that no secret is tracked: `git ls-files` shows only `.env.example` and `.env.test` (dummy values), never `.env`.
+- Cloned my pushed repo into a fresh folder with no `.env` and followed the README to confirm a stranger can boot it.
+- Decided to keep the job alert as a log line plus a `job_failures` row instead of wiring up a real Slack/email alert, and documented that in the README's limitations.
+
+**What I can explain if asked:**
+- Why parallel requests for the same tenant can both read "999 used" without the lock.
+- Why the webhook claims the event id with ON CONFLICT before running the handler, and why a handler failure rolls the claim back.
+- Why the rollover job only touches Free-plan rows, and why it is safe to run twice.

@@ -25,9 +25,20 @@ router.post('/', async (req, res) => {
 
   try {
     const processed = await withTransaction(async (client) => {
-      // Dedup: has this exact Stripe event already been applied?
-      const existing = await client.query('SELECT id FROM stripe_events WHERE stripe_event_id = $1', [event.id]);
-      if (existing.rows.length > 0) {
+      // Dedup: claim this event id atomically. ON CONFLICT DO NOTHING means two
+      // simultaneous deliveries of the same event can't both pass a
+      // "SELECT then INSERT" gap — the second INSERT waits on the unique index
+      // until the first transaction finishes, then inserts nothing.
+      // If the handler below throws, the whole transaction (including this
+      // claim) rolls back, so Stripe's retry is processed normally.
+      const claimed = await client.query(
+        `INSERT INTO stripe_events (stripe_event_id, type, payload)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (stripe_event_id) DO NOTHING
+         RETURNING id`,
+        [event.id, event.type, event.data.object]
+      );
+      if (claimed.rows.length === 0) {
         return false;
       }
 
@@ -59,12 +70,7 @@ router.post('/', async (req, res) => {
         default:
           break; // Stripe sends many event types we don't act on — that's fine.
       }
-
-      await client.query('INSERT INTO stripe_events (stripe_event_id, type, payload) VALUES ($1, $2, $3)', [
-        event.id,
-        event.type,
-        event.data.object,
-      ]);
+      
       return true;
     });
 

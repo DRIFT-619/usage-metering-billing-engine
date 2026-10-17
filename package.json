@@ -5,13 +5,18 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
+    "predev": "node scripts/ensure-env.js",
     "dev": "dotenv -e .env -- node --watch src/server.js",
+    "prestart": "node scripts/ensure-env.js",
     "start": "dotenv -e .env -- node src/server.js",
+    "premigrate:up": "node scripts/ensure-env.js",
     "migrate:up": "dotenv -e .env -- npx node-pg-migrate up",
     "migrate:down": "dotenv -e .env -- npx node-pg-migrate down",
     "migrate:create": "npx node-pg-migrate create",
+    "preseed": "node scripts/ensure-env.js",
     "seed": "dotenv -e .env -- node scripts/seed.js",
-    "test": "dotenv -e .env.test -- node --test test/**/*.test.js"
+    "test": "dotenv -e .env.test -- node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "job:rollover": "dotenv -e .env -- node scripts/run-rollover.js"
   },
   "license": "MIT",
   "dependencies": {
